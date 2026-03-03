@@ -1,0 +1,14 @@
+services:
+  songguesser:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: songguesser
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - web-services
+
+networks:
+  web-services:
+    external: true
