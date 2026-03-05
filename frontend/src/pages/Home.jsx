@@ -15,12 +15,13 @@ export default function Home() {
       username: username.trim(),
       settings: { songsPerPlayer, speedBonus },
     };
+    console.log(socket.connected)
     if (!socket.connected) {
       socket.once('connect', () => socket.emit('create_room', payload));
       socket.connect();
-    } else {
-      socket.emit('create_room', payload);
     }
+    socket.emit('create_room', payload);
+
   }
 
   function handleJoin(e) {
@@ -33,9 +34,9 @@ export default function Home() {
     if (!socket.connected) {
       socket.once('connect', () => socket.emit('join_room', payload));
       socket.connect();
-    } else {
-      socket.emit('join_room', payload);
     }
+    socket.emit('join_room', payload);
+
   }
 
   return (
