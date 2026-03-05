@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import socket from '../socket.js';
+import { saveSession } from '../App.jsx';
 
 export default function Home() {
   const [tab, setTab] = useState('create'); // create | join
@@ -10,34 +11,32 @@ export default function Home() {
 
   function handleCreate(e) {
     e.preventDefault();
-    if (!username.trim()) return;
-    const payload = {
-      username: username.trim(),
-      settings: { songsPerPlayer, speedBonus },
-    };
+    const name = username.trim();
+    if (!name) return;
+    const payload = { username: name, settings: { songsPerPlayer, speedBonus } };
+    // Save username now; App.jsx will update the code once room_created fires
+    saveSession('', name);
     if (socket.connected) {
       socket.emit('create_room', payload);
     } else {
       socket.once('connect', () => socket.emit('create_room', payload));
       socket.connect();
     }
-
   }
 
   function handleJoin(e) {
     e.preventDefault();
-    if (!username.trim() || !roomCode.trim()) return;
-    const payload = {
-      code: roomCode.trim().toUpperCase(),
-      username: username.trim(),
-    };
+    const name = username.trim();
+    const code = roomCode.trim().toUpperCase();
+    if (!name || !code) return;
+    const payload = { code, username: name };
+    saveSession(code, name);
     if (socket.connected) {
       socket.emit('join_room', payload);
     } else {
       socket.once('connect', () => socket.emit('join_room', payload));
       socket.connect();
     }
-
   }
 
   return (

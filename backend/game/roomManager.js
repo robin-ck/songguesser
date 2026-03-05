@@ -6,7 +6,7 @@ function generateCode() {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no ambiguous 0/O/1/I/L
   let code;
   do {
-    code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    code = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   } while (rooms.has(code));
   return code;
 }
@@ -71,6 +71,46 @@ export function addPlayer(code, socketId, username) {
   room.players.set(socketId, { username, songs: [], hasSubmitted: false });
   room.scores.set(socketId, 0);
   return { room };
+}
+
+export function rejoinPlayer(code, newSocketId, username) {
+  const room = rooms.get(code);
+  if (!room) return { error: 'Room not found' };
+
+  // Find existing player by username
+  let oldSocketId = null;
+  for (const [id, p] of room.players.entries()) {
+    if (p.username.toLowerCase() === username.toLowerCase()) {
+      oldSocketId = id;
+      break;
+    }
+  }
+
+  if (!oldSocketId) return { error: 'Player not found in room' };
+  if (oldSocketId === newSocketId) return { room }; // already connected
+
+  // Migrate player data to new socket id
+  const playerData = room.players.get(oldSocketId);
+  const score = room.scores.get(oldSocketId) || 0;
+  const guess = room.guesses.get(oldSocketId);
+
+  room.players.delete(oldSocketId);
+  room.scores.delete(oldSocketId);
+  room.guesses.delete(oldSocketId);
+
+  room.players.set(newSocketId, playerData);
+  room.scores.set(newSocketId, score);
+  if (guess) room.guesses.set(newSocketId, guess);
+
+  // Transfer host if needed
+  if (room.host === oldSocketId) room.host = newSocketId;
+
+  // Update submittedBy references in songQueue
+  for (const entry of room.songQueue) {
+    if (entry.submittedBy === oldSocketId) entry.submittedBy = newSocketId;
+  }
+
+  return { room, oldSocketId };
 }
 
 export function removePlayer(socketId) {
@@ -152,9 +192,6 @@ export function recordGuess(socketId, guessedPlayerId) {
   if (!room) return { error: 'Not in a room' };
   if (room.phase !== 'playing') return { error: 'Not in playing phase' };
   if (room.guesses.has(socketId)) return { error: 'Already guessed' };
-
-  // Host doesn't guess
-  if (socketId === room.host) return { error: 'Host does not guess' };
 
   room.guesses.set(socketId, {
     guessedPlayerId,

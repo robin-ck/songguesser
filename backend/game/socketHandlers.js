@@ -3,6 +3,7 @@ import {
   getRoom,
   getRoomBySocket,
   addPlayer,
+  rejoinPlayer,
   removePlayer,
   submitSongs,
   allPlayersSubmitted,
@@ -16,6 +17,41 @@ import {
 export function registerSocketHandlers(io) {
   io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`);
+
+    // Rejoin after page reload
+    socket.on('rejoin_room', ({ code, username } = {}) => {
+      if (!code || !username) return socket.emit('rejoin_result', { success: false, error: 'Missing code or username' });
+
+      const result = rejoinPlayer(code.toUpperCase(), socket.id, username);
+      if (result.error) return socket.emit('rejoin_result', { success: false, error: result.error });
+
+      const { room } = result;
+      socket.join(room.code);
+
+      // Send current game state back to the rejoining client
+      socket.emit('rejoin_result', { success: true, phase: room.phase });
+      io.to(room.code).emit('room_update', getPublicRoomState(room));
+
+      // If game is in progress, resend current song state to the rejoining client
+      if (room.phase === 'playing' && room.currentSongIndex >= 0) {
+        const entry = room.songQueue[room.currentSongIndex];
+        const playerOptions = Array.from(room.players.entries())
+          .map(([id, p]) => ({ id, username: p.username }));
+
+        socket.emit('song_changed', {
+          song: {
+            name: entry.track.name,
+            artist: entry.track.artist,
+            albumArt: entry.track.albumArt,
+            previewUrl: entry.track.previewUrl,
+            youtubeQuery: `${entry.track.name} ${entry.track.artist}`,
+          },
+          playerOptions,
+          songIndex: room.currentSongIndex,
+          totalSongs: room.songQueue.length,
+        });
+      }
+    });
 
     // Create a new room
     socket.on('create_room', ({ username, settings } = {}) => {
@@ -69,7 +105,6 @@ export function registerSocketHandlers(io) {
         if (!entry) return socket.emit('error', { message: 'No songs in queue' });
 
         const playerOptions = Array.from(room.players.entries())
-          .filter(([id]) => id !== room.host)
           .map(([id, p]) => ({ id, username: p.username }));
 
         io.to(room.code).emit('game_started');
@@ -103,7 +138,6 @@ export function registerSocketHandlers(io) {
       if (!entry) return socket.emit('error', { message: 'No songs in queue' });
 
       const playerOptions = Array.from(room.players.entries())
-        .filter(([id]) => id !== room.host)
         .map(([id, p]) => ({ id, username: p.username }));
 
       io.to(room.code).emit('game_started');
@@ -187,7 +221,6 @@ export function registerSocketHandlers(io) {
       }
 
       const playerOptions = Array.from(room.players.entries())
-        .filter(([id]) => id !== room.host)
         .map(([id, p]) => ({ id, username: p.username }));
 
       io.to(room.code).emit('song_changed', {

@@ -99,8 +99,8 @@ export default function Game({ roomState, myId }) {
           <YoutubePlayer query={currentSong.youtubeQuery} previewUrl={currentSong.previewUrl} />
         )}
 
-        {/* Guess buttons — non-hosts only */}
-        {!isHost && (
+        {/* Guess buttons — all players including host */}
+        {!showResult && (
           <div style={{ marginBottom: 24 }}>
             <h3 style={{ marginBottom: 12 }}>Who submitted this song?</h3>
             <div className="flex flex-col gap-4">
@@ -124,7 +124,7 @@ export default function Game({ roomState, myId }) {
                 </button>
               ))}
             </div>
-            {myGuess && !showResult && (
+            {!isHost && myGuess && !showResult && (
               <p className="text-muted text-center" style={{ marginTop: 12 }}>
                 Waiting for host to reveal...
               </p>
