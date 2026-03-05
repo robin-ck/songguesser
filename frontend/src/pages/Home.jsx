@@ -15,12 +15,12 @@ export default function Home() {
       username: username.trim(),
       settings: { songsPerPlayer, speedBonus },
     };
-    console.log(socket.connected)
-    if (!socket.connected) {
+    if (socket.connected) {
+      socket.emit('create_room', payload);
+    } else {
       socket.once('connect', () => socket.emit('create_room', payload));
       socket.connect();
     }
-    socket.emit('create_room', payload);
 
   }
 
@@ -31,11 +31,12 @@ export default function Home() {
       code: roomCode.trim().toUpperCase(),
       username: username.trim(),
     };
-    if (!socket.connected) {
+    if (socket.connected) {
+      socket.emit('join_room', payload);
+    } else {
       socket.once('connect', () => socket.emit('join_room', payload));
       socket.connect();
     }
-    socket.emit('join_room', payload);
 
   }
 

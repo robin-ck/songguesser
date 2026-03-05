@@ -19,49 +19,37 @@ function AppInner() {
   }, [phase]);
 
   useEffect(() => {
-    socket.on('connect', () => setMyId(socket.id));
-
-    socket.on('room_created', ({ code }) => {
-      setPhase('lobby');
-      navigate('/lobby');
-    });
-
-    socket.on('room_joined', ({ code }) => {
-      setPhase('lobby');
-      navigate('/lobby');
-    });
-
-    socket.on('room_update', (state) => {
+    const onConnect = () => setMyId(socket.id);
+    const onRoomCreated = () => { setPhase('lobby'); navigate('/lobby'); };
+    const onRoomJoined = () => { setPhase('lobby'); };
+    const onRoomUpdate = (state) => {
       setRoomState(state);
+      if (state.phase === 'lobby' && phaseRef.current !== 'lobby') navigate('/lobby');
       if (state.phase === 'submission' && phaseRef.current !== 'submission') {
         setPhase('submission');
         navigate('/submission');
       }
-    });
+    };
+    const onGameStarted = () => { setPhase('playing'); navigate('/game'); };
+    const onGameEnded = ({ finalScores }) => { setPhase('ended'); navigate('/results', { state: { finalScores } }); };
+    const onError = ({ message }) => { console.error('Socket error:', message); alert(`Error: ${message}`); };
 
-    socket.on('game_started', () => {
-      setPhase('playing');
-      navigate('/game');
-    });
-
-    socket.on('game_ended', ({ finalScores }) => {
-      setPhase('ended');
-      navigate('/results', { state: { finalScores } });
-    });
-
-    socket.on('error', ({ message }) => {
-      console.error('Socket error:', message);
-      alert(`Error: ${message}`);
-    });
+    socket.on('connect', onConnect);
+    socket.on('room_created', onRoomCreated);
+    socket.on('room_joined', onRoomJoined);
+    socket.on('room_update', onRoomUpdate);
+    socket.on('game_started', onGameStarted);
+    socket.on('game_ended', onGameEnded);
+    socket.on('error', onError);
 
     return () => {
-      socket.off('connect');
-      socket.off('room_created');
-      socket.off('room_joined');
-      socket.off('room_update');
-      socket.off('game_started');
-      socket.off('game_ended');
-      socket.off('error');
+      socket.off('connect', onConnect);
+      socket.off('room_created', onRoomCreated);
+      socket.off('room_joined', onRoomJoined);
+      socket.off('room_update', onRoomUpdate);
+      socket.off('game_started', onGameStarted);
+      socket.off('game_ended', onGameEnded);
+      socket.off('error', onError);
     };
   }, [navigate]);
 

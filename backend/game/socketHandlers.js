@@ -60,9 +60,31 @@ export function registerSocketHandlers(io) {
       const room = result.room;
       io.to(room.code).emit('room_update', getPublicRoomState(room));
 
-      // Auto-advance if everyone submitted
+      // Auto-start the game if everyone submitted
       if (allPlayersSubmitted(room)) {
-        io.to(room.code).emit('all_submitted');
+        buildSongQueue(room);
+        room.phase = 'playing';
+
+        const entry = advanceSong(room);
+        if (!entry) return socket.emit('error', { message: 'No songs in queue' });
+
+        const playerOptions = Array.from(room.players.entries())
+          .filter(([id]) => id !== room.host)
+          .map(([id, p]) => ({ id, username: p.username }));
+
+        io.to(room.code).emit('game_started');
+        io.to(room.code).emit('song_changed', {
+          song: {
+            name: entry.track.name,
+            artist: entry.track.artist,
+            albumArt: entry.track.albumArt,
+            previewUrl: entry.track.previewUrl,
+            youtubeQuery: `${entry.track.name} ${entry.track.artist}`,
+          },
+          playerOptions,
+          songIndex: room.currentSongIndex,
+          totalSongs: room.songQueue.length,
+        });
       }
     });
 
